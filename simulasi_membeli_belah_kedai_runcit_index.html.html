@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulasi Membeli-belah Kedai Runcit</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts (Fredoka) -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- QRCode.js Library for Generating QR Codes -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Fredoka', sans-serif;
+            background-color: #f0fdf4;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* Item Floating Animation & Interaction */
+        .item-card {
+            transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            touch-action: manipulation;
+        }
+        .item-card:hover {
+            transform: translateY(-4px) scale(1.03);
+        }
+        .item-card:active {
+            transform: scale(0.95);
+        }
+
+        /* Cart Dropzone Effect */
+        .cart-drag-over {
+            border-color: #22c55e !important;
+            background-color: #dcfce7 !important;
+            transform: scale(1.01);
+        }
+
+        /* Confetti Overlay */
+        #confetti-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .set-btn-active {
+            background-color: #059669 !important;
+            color: #ffffff !important;
+            border-color: #047857 !important;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Shake animation for error popup */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+        .animate-shake {
+            animation: shake 0.4s ease-in-out;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between text-slate-800">
+
+    <canvas id="confetti-canvas"></canvas>
+
+    <!-- Header Section -->
+    <header class="bg-emerald-600 text-white shadow-md p-3.5 md:p-4 sticky top-0 z-30">
+        <div class="max-w-6xl mx-auto flex flex-wrap justify-between items-center gap-2">
+            <div class="flex items-center gap-3">
+                <div class="bg-amber-400 text-emerald-900 p-2.5 rounded-2xl shadow-inner text-xl">
+                    <i class="fa-solid fa-basket-shopping"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl md:text-2xl font-bold leading-tight">Kedai Runcit Ceria</h1>
+                    <p class="text-xs md:text-sm text-emerald-100">Cari 5 barang mengikut senarai!</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <!-- QR Code Generator Button -->
+                <button onclick="openQRModal()" class="bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-bold px-3.5 py-2 rounded-xl border border-amber-400 shadow transition-all text-xs md:text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-qrcode text-base"></i>
+                    <span class="hidden sm:inline">Kod QR Game</span>
+                </button>
+
+                <div class="bg-emerald-700/80 border border-emerald-500 px-3 py-1.5 rounded-xl flex items-center gap-2 text-sm">
+                    <i class="fa-solid fa-star text-amber-300"></i>
+                    <span id="score-header" class="font-bold">Mata: 0</span>
+                </div>
+
+                <button id="sound-btn" onclick="toggleSound()" class="bg-emerald-700 hover:bg-emerald-800 text-white p-2.5 rounded-xl border border-emerald-500 transition-colors" title="Buka/Tutup Bunyi">
+                    <i id="sound-icon" class="fa-solid fa-volume-high"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Set Selector Tabs -->
+    <section class="max-w-6xl w-full mx-auto px-4 pt-4">
+        <div class="bg-white p-2.5 md:p-3 rounded-2xl shadow-sm border border-emerald-100 flex items-center gap-2 overflow-x-auto">
+            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider px-2 shrink-0">Pilih Set:</span>
+            <div class="flex gap-2 w-full">
+                <button onclick="selectSet(0)" id="set-btn-0" class="set-nav-btn px-4 py-2 rounded-xl text-xs md:text-sm font-bold bg-slate-100 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 border border-slate-200 transition-all shrink-0">🎮 SET 1</button>
+                <button onclick="selectSet(1)" id="set-btn-1" class="set-nav-btn px-4 py-2 rounded-xl text-xs md:text-sm font-bold bg-slate-100 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 border border-slate-200 transition-all shrink-0">🎮 SET 2</button>
+                <button onclick="selectSet(2)" id="set-btn-2" class="set-nav-btn px-4 py-2 rounded-xl text-xs md:text-sm font-bold bg-slate-100 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 border border-slate-200 transition-all shrink-0">🎮 SET 3</button>
+                <button onclick="selectSet(3)" id="set-btn-3" class="set-nav-btn px-4 py-2 rounded-xl text-xs md:text-sm font-bold bg-slate-100 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 border border-slate-200 transition-all shrink-0">🎮 SET 4</button>
+                <button onclick="selectSet(4)" id="set-btn-4" class="set-nav-btn px-4 py-2 rounded-xl text-xs md:text-sm font-bold bg-slate-100 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 border border-slate-200 transition-all shrink-0">🎮 SET 5</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Toast Alert for Wrong Item -->
+    <div id="toast-alert" class="fixed top-20 left-1/2 -translate-x-1/2 bg-rose-500 text-white font-bold px-6 py-3 rounded-2xl shadow-xl flex items-center gap-3 transition-all duration-300 opacity-0 pointer-events-none z-50 transform -translate-y-4">
+        <i class="fa-solid fa-circle-exclamation text-xl"></i>
+        <span id="toast-msg">Barang ini tiada dalam senarai!</span>
+    </div>
+
+    <!-- Main Game Section -->
+    <main class="max-w-6xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 flex-grow">
+
+        <!-- Left Column: Shopping List -->
+        <section class="lg:col-span-4 flex flex-col gap-4">
+            <div class="bg-white rounded-3xl p-5 border-2 border-emerald-100 shadow-xl relative overflow-hidden flex flex-col h-full">
+                <div class="flex items-center justify-between pb-3 mb-3 border-b-2 border-dashed border-slate-200">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-clipboard-list text-emerald-600 text-2xl"></i>
+                        <h2 class="text-xl font-bold text-slate-700" id="set-title-display">Senarai SET 1</h2>
+                    </div>
+                    <span id="progress-badge" class="text-xs bg-emerald-100 text-emerald-800 font-bold px-3 py-1 rounded-full">0 / 5</span>
+                </div>
+
+                <p class="text-xs text-slate-500 mb-3">Kumpul kesemua 5 barang dalam senarai ini ke dalam bakul:</p>
+
+                <!-- Dynamic Task List -->
+                <div id="shopping-list-container" class="space-y-2.5 flex-grow">
+                    <!-- Populated via JS -->
+                </div>
+
+                <div class="mt-4 p-3 bg-amber-50 rounded-2xl border border-amber-200 flex items-start gap-2 text-xs text-amber-800">
+                    <i class="fa-solid fa-lightbulb text-amber-500 text-base shrink-0 mt-0.5"></i>
+                    <span>Klik atau tarik (drag) barang dari rak untuk memasukkannya ke dalam bakul.</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Column: Grocery Shelves and Shopping Cart -->
+        <section class="lg:col-span-8 flex flex-col gap-6">
+
+            <!-- Grocery Shelves Area -->
+            <div class="bg-amber-100/70 rounded-3xl p-4 md:p-5 border-4 border-amber-800/20 shadow-lg relative">
+                <div class="flex justify-between items-center mb-3">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-store text-amber-800 text-xl"></i>
+                        <h2 class="text-lg font-bold text-amber-900">Rak Barangan Kedai</h2>
+                    </div>
+                    <span class="text-xs text-amber-800 bg-amber-200/80 px-3 py-1 rounded-full font-semibold">Pilih barang yang betul sahaja!</span>
+                </div>
+
+                <!-- Shelves Grid Container -->
+                <div id="shelves-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-[380px] overflow-y-auto p-2 bg-amber-200/40 rounded-2xl border border-amber-300">
+                    <!-- Items rendered dynamically -->
+                </div>
+            </div>
+
+            <!-- Shopping Cart Section -->
+            <div id="cart-dropzone" 
+                 ondragover="handleDragOver(event)" 
+                 ondragleave="handleDragLeave(event)" 
+                 ondrop="handleDrop(event)"
+                 class="bg-white rounded-3xl p-5 border-4 border-dashed border-emerald-300 shadow-xl transition-all duration-200 flex flex-col min-h-[200px]">
+                
+                <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-100">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-emerald-500 text-white p-2 rounded-xl">
+                            <i class="fa-solid fa-cart-shopping text-xl"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-lg font-bold text-slate-800">Bakul Membeli-Belah</h2>
+                            <p class="text-xs text-slate-400">Barang yang telah diambil</p>
+                        </div>
+                    </div>
+
+                    <button onclick="clearCart()" class="text-xs bg-rose-50 hover:bg-rose-100 text-rose-600 px-3 py-1.5 rounded-xl border border-rose-200 font-semibold transition-colors flex items-center gap-1.5">
+                        <i class="fa-solid fa-trash-can"></i> Kosongkan
+                    </button>
+                </div>
+
+                <!-- Cart Items Container -->
+                <div id="cart-items-container" class="flex-grow flex flex-wrap gap-2.5 items-center justify-start p-3 bg-slate-50 rounded-2xl border border-slate-200 min-h-[100px]">
+                    <div id="empty-cart-msg" class="w-full text-center text-slate-400 py-6 flex flex-col items-center justify-center gap-2">
+                        <i class="fa-solid fa-basket-shopping text-3xl opacity-40"></i>
+                        <span class="text-sm">Bakul anda kosong. Klik atau tarik barang dari rak ke sini!</span>
+                    </div>
+                </div>
+
+                <!-- Checkout Button -->
+                <div class="mt-4 flex justify-end">
+                    <button id="checkout-btn" onclick="checkVictory()" class="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-bold px-8 py-3.5 rounded-2xl shadow-lg shadow-emerald-500/30 transition-all text-base flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-cash-register text-lg"></i> Semak & Bayar
+                    </button>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Victory Modal -->
+    <div id="win-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 text-center shadow-2xl border-4 border-emerald-400 relative overflow-hidden">
+            <div class="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl shadow-inner border-2 border-emerald-300">
+                <i class="fa-solid fa-circle-check"></i>
+            </div>
+            
+            <h3 class="text-2xl font-bold text-slate-800 mb-2">Set Selesai! Tahniah!</h3>
+            <p id="win-message" class="text-slate-600 text-sm mb-5">Anda telah berjaya mengambil kesemua 5 barang mengikut senarai!</p>
+
+            <div class="bg-emerald-50 p-4 rounded-2xl mb-6 border border-emerald-200">
+                <div class="text-xs text-emerald-800 uppercase tracking-wider font-semibold mb-1">Skor Pusingan Ini</div>
+                <div class="text-3xl font-extrabold text-emerald-600" id="round-score-display">+100 Mata</div>
+            </div>
+
+            <button id="next-set-btn" onclick="goToNextSet()" class="w-full bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-bold py-3.5 px-6 rounded-2xl shadow-lg shadow-amber-500/30 transition-all text-lg flex items-center justify-center gap-2">
+                <span id="next-set-text">Ke Set Seterusnya</span>
+                <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- QR Code Generator Modal -->
+    <div id="qr-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 text-center shadow-2xl border-4 border-amber-400 relative">
+            <button onclick="closeQRModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-xl w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <div class="w-14 h-14 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-3 text-2xl">
+                <i class="fa-solid fa-qrcode"></i>
+            </div>
+
+            <h3 class="text-xl font-bold text-slate-800 mb-1">Kod QR Permainan</h3>
+            <p class="text-xs text-slate-500 mb-4">Imbas Kod QR ini guna telefon/tablet untuk bermain terus!</p>
+
+            <!-- Editable URL Input -->
+            <div class="mb-4 text-left">
+                <label class="block text-xs font-bold text-slate-600 mb-1">URL Permainan Web:</label>
+                <div class="flex gap-2">
+                    <input type="text" id="qr-url-input" class="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:outline-none focus:border-amber-500" placeholder="Masukkan URL laman web...">
+                    <button onclick="updateQRCode()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold px-3 py-2 rounded-xl text-xs shrink-0">Jana</button>
+                </div>
+            </div>
+
+            <!-- QR Code Display Area -->
+            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex items-center justify-center mb-4 min-h-[200px]">
+                <div id="qrcode" class="p-2 bg-white rounded-xl shadow-md border border-slate-200"></div>
+            </div>
+
+            <div class="flex gap-2">
+                <button onclick="copyQRUrl()" class="w-1/2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-copy"></i> Salin Pautan
+                </button>
+                <button onclick="downloadQRCode()" class="w-1/2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-download"></i> Muat Turun QR
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-3 text-center text-xs text-slate-500">
+        Kedai Runcit Ceria &copy; Simulasi Membeli-Belah Interaktif
+    </footer>
+
+    <script>
+        let soundEnabled = true;
+        let currentSetIndex = 0;
+        let totalScore = 0;
+        let currentTargetList = [];
+        let shelfItems = [];
+        let cartItems = [];
+        let qrcodeObj = null;
+
+        /* All Available Distractor Pool Items */
+        const DISTRACTOR_POOL = [
+            { type: 'epal', name: 'Epal', emoji: '🍎' },
+            { type: 'berusGigi', name: 'Berus Gigi', emoji: '🪥' },
+            { type: 'pensel', name: 'Pensel', emoji: '✏️' },
+            { type: 'sudu', name: 'Sudu', emoji: '🥄' },
+            { type: 'pisang', name: 'Pisang', emoji: '🍌' },
+            { type: 'beg', name: 'Beg', emoji: '🎒' },
+            { type: 'sabun', name: 'Sabun', emoji: '🧼' },
+            { type: 'lobak', name: 'Lobak', emoji: '🥕' },
+            { type: 'pinggan', name: 'Pinggan', emoji: '🍽️' },
+            { type: 'cawan', name: 'Cawan', emoji: '🥤' },
+            { type: 'krayon', name: 'Krayon', emoji: '🖍️' },
+            { type: 'sikat', name: 'Sikat', emoji: '🪮' },
+            { type: 'susu', name: 'Susu', emoji: '🥛' },
+            { type: 'garpu', name: 'Garpu', emoji: '🍴' },
+            { type: 'buku', name: 'Buku', emoji: '📚' },
+            { type: 'syampu', name: 'Syampu', emoji: '🧴' },
+            { type: 'roti', name: 'Roti', emoji: '🍞' },
+            { type: 'topi', name: 'Topi', emoji: '🧢' },
+            { type: 'payung', name: 'Payung', emoji: '☂️' }
+        ];
+
+        /* The 5 Exact Sets Requested */
+        const GAME_SETS = [
+            {
+                setName: "SET 1",
+                items: [
+                    { type: 'epal', name: 'Epal', emoji: '🍎' },
+                    { type: 'berusGigi', name: 'Berus Gigi', emoji: '🪥' },
+                    { type: 'pensel', name: 'Pensel', emoji: '✏️' },
+                    { type: 'sudu', name: 'Sudu', emoji: '🥄' },
+                    { type: 'pisang', name: 'Pisang', emoji: '🍌' }
+                ]
+            },
+            {
+                setName: "SET 2",
+                items: [
+                    { type: 'beg', name: 'Beg', emoji: '🎒' },
+                    { type: 'sabun', name: 'Sabun', emoji: '🧼' },
+                    { type: 'lobak', name: 'Lobak', emoji: '🥕' },
+                    { type: 'pinggan', name: 'Pinggan', emoji: '🍽️' },
+                    { type: 'cawan', name: 'Cawan', emoji: '🥤' }
+                ]
+            },
+            {
+                setName: "SET 3",
+                items: [
+                    { type: 'krayon', name: 'Krayon', emoji: '🖍️' },
+                    { type: 'sikat', name: 'Sikat', emoji: '🪮' },
+                    { type: 'susu', name: 'Susu', emoji: '🥛' },
+                    { type: 'garpu', name: 'Garpu', emoji: '🍴' },
+                    { type: 'epal', name: 'Epal', emoji: '🍎' }
+                ]
+            },
+            {
+                setName: "SET 4",
+                items: [
+                    { type: 'buku', name: 'Buku', emoji: '📚' },
+                    { type: 'syampu', name: 'Syampu', emoji: '🧴' },
+                    { type: 'pisang', name: 'Pisang', emoji: '🍌' },
+                    { type: 'sudu', name: 'Sudu', emoji: '🥄' },
+                    { type: 'lobak', name: 'Lobak', emoji: '🥕' }
+                ]
+            },
+            {
+                setName: "SET 5",
+                items: [
+                    { type: 'cawan', name: 'Cawan', emoji: '🥤' },
+                    { type: 'pensel', name: 'Pensel', emoji: '✏️' },
+                    { type: 'berusGigi', name: 'Berus Gigi', emoji: '🪥' },
+                    { type: 'susu', name: 'Susu', emoji: '🥛' },
+                    { type: 'pinggan', name: 'Pinggan', emoji: '🍽️' }
+                ]
+            }
+        ];
+
+        /* Sound System via Web Audio API */
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                const now = audioCtx.currentTime;
+
+                if (type === 'add') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(520, now);
+                    osc.frequency.exponentialRampToValueAtTime(880, now + 0.12);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+                    osc.start(now);
+                    osc.stop(now + 0.12);
+                } else if (type === 'remove') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(400, now);
+                    osc.frequency.exponentialRampToValueAtTime(220, now + 0.12);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+                    osc.start(now);
+                    osc.stop(now + 0.12);
+                } else if (type === 'win') {
+                    const notes = [523.25, 659.25, 783.99, 1046.50];
+                    notes.forEach((freq, idx) => {
+                        const noteOsc = audioCtx.createOscillator();
+                        const noteGain = audioCtx.createGain();
+                        noteOsc.connect(noteGain);
+                        noteGain.connect(audioCtx.destination);
+                        
+                        noteOsc.frequency.setValueAtTime(freq, now + idx * 0.1);
+                        noteGain.gain.setValueAtTime(0.2, now + idx * 0.1);
+                        noteGain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.1 + 0.25);
+                        noteOsc.start(now + idx * 0.1);
+                        noteOsc.stop(now + idx * 0.1 + 0.25);
+                    });
+                } else if (type === 'error') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(200, now);
+                    osc.frequency.setValueAtTime(140, now + 0.12);
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                    osc.start(now);
+                    osc.stop(now + 0.2);
+                }
+            } catch (e) {
+                console.log('Audio fallback');
+            }
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            const icon = document.getElementById('sound-icon');
+            icon.className = soundEnabled ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark text-rose-300';
+        }
+
+        window.onload = function() {
+            selectSet(0);
+        };
+
+        /* Switch Between Sets */
+        function selectSet(index) {
+            currentSetIndex = index;
+            
+            // Update active button styling
+            document.querySelectorAll('.set-nav-btn').forEach((btn, idx) => {
+                if (idx === index) {
+                    btn.classList.add('set-btn-active');
+                } else {
+                    btn.classList.remove('set-btn-active');
+                }
+            });
+
+            startSetRound();
+        }
+
+        function startSetRound() {
+            cartItems = [];
+            const currentSetData = GAME_SETS[currentSetIndex];
+            document.getElementById('set-title-display').innerText = `Senarai ${currentSetData.setName}`;
+
+            // Map target items
+            currentTargetList = currentSetData.items.map((item, idx) => ({
+                id: `target_${currentSetIndex}_${idx}`,
+                type: item.type,
+                name: item.name,
+                emoji: item.emoji
+            }));
+
+            // Shelf generation: 5 target items + 4 distractors
+            shelfItems = [];
+            let idCounter = 1;
+
+            // Add the 5 target items
+            currentTargetList.forEach(target => {
+                shelfItems.push({
+                    instanceId: `item_${idCounter++}`,
+                    type: target.type,
+                    name: target.name,
+                    emoji: target.emoji
+                });
+            });
+
+            // Add 4 distractors (items not in the target list)
+            const distractors = DISTRACTOR_POOL.filter(dp => !currentTargetList.some(t => t.type === dp.type));
+            distractors.sort(() => 0.5 - Math.random());
+
+            for (let i = 0; i < 4 && i < distractors.length; i++) {
+                shelfItems.push({
+                    instanceId: `item_${idCounter++}`,
+                    type: distractors[i].type,
+                    name: distractors[i].name,
+                    emoji: distractors[i].emoji
+                });
+            }
+
+            // Shuffle shelf items randomly
+            shelfItems.sort(() => 0.5 - Math.random());
+
+            renderShoppingList();
+            renderShelves();
+            renderCart();
+        }
+
+        /* Render Target Task List */
+        function renderShoppingList() {
+            const container = document.getElementById('shopping-list-container');
+            container.innerHTML = '';
+
+            let collectedCount = 0;
+
+            currentTargetList.forEach(target => {
+                const isInCart = cartItems.some(item => item.type === target.type);
+                if (isInCart) collectedCount++;
+
+                const card = document.createElement('div');
+                card.className = `p-3 rounded-2xl border-2 transition-all flex items-center justify-between ${
+                    isInCart 
+                    ? 'bg-emerald-50 border-emerald-400 shadow-sm' 
+                    : 'bg-white border-slate-200 shadow-sm'
+                }`;
+
+                card.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl flex items-center justify-center text-2xl bg-emerald-50 border border-emerald-200 shrink-0">
+                            <span>${target.emoji}</span>
+                        </div>
+                        <div class="font-bold text-slate-800 text-sm md:text-base ${isInCart ? 'line-through text-emerald-700' : ''}">
+                            ${target.name}
+                        </div>
+                    </div>
+
+                    <div>
+                        ${isInCart 
+                            ? '<div class="w-8 h-8 bg-emerald-500 text-white rounded-full flex items-center justify-center text-sm shadow-md animate-bounce"><i class="fa-solid fa-check"></i></div>' 
+                            : '<div class="w-8 h-8 bg-slate-100 text-slate-300 rounded-full flex items-center justify-center text-xs"><i class="fa-solid fa-circle"></i></div>'
+                        }
+                    </div>
+                `;
+
+                container.appendChild(card);
+            });
+
+            // Update Progress Badge
+            document.getElementById('progress-badge').innerText = `${collectedCount} / 5`;
+            if (collectedCount === 5) {
+                document.getElementById('progress-badge').className = "text-xs bg-emerald-500 text-white font-bold px-3 py-1 rounded-full animate-pulse";
+            } else {
+                document.getElementById('progress-badge').className = "text-xs bg-emerald-100 text-emerald-800 font-bold px-3 py-1 rounded-full";
+            }
+        }
+
+        /* Render Shelves UI */
+        function renderShelves() {
+            const container = document.getElementById('shelves-container');
+            container.innerHTML = '';
+
+            shelfItems.forEach(item => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'item-card cursor-pointer p-3 rounded-2xl flex flex-col items-center justify-center text-center shadow-sm hover:shadow-md border-2 border-amber-200 hover:border-emerald-400 bg-white select-none';
+                itemEl.setAttribute('draggable', 'true');
+
+                itemEl.addEventListener('dragstart', (e) => handleDragStart(e, item));
+                itemEl.onclick = () => addToCart(item);
+
+                itemEl.innerHTML = `
+                    <div class="text-3xl md:text-4xl mb-1">${item.emoji}</div>
+                    <div class="font-bold text-xs md:text-sm text-slate-800 leading-tight">${item.name}</div>
+                `;
+
+                container.appendChild(itemEl);
+            });
+        }
+
+        /* Drag & Drop logic */
+        let draggedItem = null;
+
+        function handleDragStart(e, item) {
+            draggedItem = item;
+            e.dataTransfer.setData('text/plain', JSON.stringify(item));
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            document.getElementById('cart-dropzone').classList.add('cart-drag-over');
+        }
+
+        function handleDragLeave(e) {
+            document.getElementById('cart-dropzone').classList.remove('cart-drag-over');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            document.getElementById('cart-dropzone').classList.remove('cart-drag-over');
+            if (draggedItem) {
+                addToCart(draggedItem);
+                draggedItem = null;
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast-alert');
+            document.getElementById('toast-msg').innerText = msg;
+            toast.classList.remove('opacity-0', 'pointer-events-none', '-translate-y-4');
+            toast.classList.add('opacity-100', 'translate-y-0', 'animate-shake');
+
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0', 'animate-shake');
+                toast.classList.add('opacity-0', 'pointer-events-none', '-translate-y-4');
+            }, 2000);
+        }
+
+        /* Cart operations */
+        function addToCart(item) {
+            // Check if item belongs to current target list
+            const isTarget = currentTargetList.some(target => target.type === item.type);
+
+            if (!isTarget) {
+                playSound('error');
+                showToast(`"${item.name}" tiada dalam senarai!`);
+                return;
+            }
+
+            const index = shelfItems.findIndex(i => i.instanceId === item.instanceId);
+            if (index !== -1) {
+                shelfItems.splice(index, 1);
+                cartItems.push(item);
+                playSound('add');
+                renderShelves();
+                renderCart();
+                renderShoppingList();
+
+                // Auto victory check if 5 items are in cart
+                if (cartItems.length === 5) {
+                    setTimeout(checkVictory, 400);
+                }
+            }
+        }
+
+        function removeFromCart(item) {
+            const index = cartItems.findIndex(i => i.instanceId === item.instanceId);
+            if (index !== -1) {
+                cartItems.splice(index, 1);
+                shelfItems.push(item);
+                playSound('remove');
+                renderShelves();
+                renderCart();
+                renderShoppingList();
+            }
+        }
+
+        function clearCart() {
+            if (cartItems.length === 0) return;
+            shelfItems.push(...cartItems);
+            cartItems = [];
+            playSound('remove');
+            renderShelves();
+            renderCart();
+            renderShoppingList();
+        }
+
+        /* Render Cart Items */
+        function renderCart() {
+            const container = document.getElementById('cart-items-container');
+            const emptyMsg = document.getElementById('empty-cart-msg');
+
+            if (cartItems.length === 0) {
+                container.innerHTML = '';
+                container.appendChild(emptyMsg);
+                return;
+            }
+
+            container.innerHTML = '';
+
+            cartItems.forEach(item => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'bg-white border-2 border-emerald-300 rounded-2xl px-3 py-2 flex items-center gap-2 shadow-sm hover:shadow transition-all group cursor-pointer';
+                itemEl.onclick = () => removeFromCart(item);
+
+                itemEl.innerHTML = `
+                    <span class="text-2xl">${item.emoji}</span>
+                    <span class="font-bold text-xs text-slate-700">${item.name}</span>
+                    <i class="fa-solid fa-xmark text-slate-300 group-hover:text-rose-500 text-xs ml-1"></i>
+                `;
+
+                container.appendChild(itemEl);
+            });
+        }
+
+        /* Check Victory Condition */
+        function checkVictory() {
+            const collectedTypes = cartItems.map(i => i.type);
+            const targetTypes = currentTargetList.map(t => t.type);
+
+            const isAllCollected = targetTypes.every(t => collectedTypes.includes(t)) && cartItems.length === 5;
+
+            if (isAllCollected) {
+                playSound('win');
+                triggerConfetti();
+
+                totalScore += 100;
+                document.getElementById('score-header').innerText = `Mata: ${totalScore}`;
+                document.getElementById('round-score-display').innerText = `+100 Mata`;
+
+                if (currentSetIndex < GAME_SETS.length - 1) {
+                    document.getElementById('next-set-text').innerText = `Ke SET ${currentSetIndex + 2}`;
+                } else {
+                    document.getElementById('next-set-text').innerText = `Main Semula SET 1`;
+                }
+
+                document.getElementById('win-modal').classList.remove('hidden');
+            } else {
+                playSound('error');
+                showToast(`Sila lengkapkan kesemua 5 barang dalam senarai terlebih dahulu!`);
+            }
+        }
+
+        function goToNextSet() {
+            document.getElementById('win-modal').classList.add('hidden');
+            if (currentSetIndex < GAME_SETS.length - 1) {
+                selectSet(currentSetIndex + 1);
+            } else {
+                selectSet(0);
+            }
+        }
+
+        /* QR Code Generator Functions */
+        function openQRModal() {
+            const modal = document.getElementById('qr-modal');
+            const urlInput = document.getElementById('qr-url-input');
+            
+            // Auto fill with current URL if valid web address, else placeholder
+            const currentUrl = window.location.href.startsWith('http') ? window.location.href : 'https://contoh-kedai-runcit.web.app';
+            urlInput.value = currentUrl;
+
+            modal.classList.remove('hidden');
+            updateQRCode();
+        }
+
+        function closeQRModal() {
+            document.getElementById('qr-modal').classList.add('hidden');
+        }
+
+        function updateQRCode() {
+            const qrContainer = document.getElementById('qrcode');
+            qrContainer.innerHTML = '';
+
+            let url = document.getElementById('qr-url-input').value.trim();
+            if (!url) url = window.location.href;
+
+            qrcodeObj = new QRCode(qrContainer, {
+                text: url,
+                width: 180,
+                height: 180,
+                colorDark: "#047857",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+        }
+
+        function copyQRUrl() {
+            const urlInput = document.getElementById('qr-url-input');
+            urlInput.select();
+            document.execCommand('copy');
+            showToast('Pautan berjaya disalin ke papan klip!');
+        }
+
+        function downloadQRCode() {
+            const qrImg = document.querySelector('#qrcode img');
+            if (qrImg && qrImg.src) {
+                const link = document.createElement('a');
+                link.href = qrImg.src;
+                link.download = 'QR_Kedai_Runcit_Game.png';
+                link.click();
+            } else {
+                showToast('Gagal memuat turun Kod QR');
+            }
+        }
+
+        /* Simple Confetti Effect */
+        function triggerConfetti() {
+            const canvas = document.getElementById('confetti-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            const particles = [];
+            const colors = ['#10b981', '#f59e0b', '#3b82f6', '#ec4899', '#8b5cf6'];
+
+            for (let i = 0; i < 90; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height - canvas.height,
+                    size: Math.random() * 8 + 4,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    speedY: Math.random() * 3 + 2,
+                    speedX: Math.random() * 2 - 1,
+                    rotation: Math.random() * 360
+                });
+            }
+
+            let animationFrame;
+            let timer = 0;
+
+            function animateConfetti() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                particles.forEach(p => {
+                    p.y += p.speedY;
+                    p.x += p.speedX;
+                    p.rotation += 2;
+
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate((p.rotation * Math.PI) / 180);
+                    ctx.fillStyle = p.color;
+                    ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                    ctx.restore();
+                });
+
+                timer++;
+                if (timer < 160) {
+                    animationFrame = requestAnimationFrame(animateConfetti);
+                } else {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    cancelAnimationFrame(animationFrame);
+                }
+            }
+
+            animateConfetti();
+        }
+    </script>
+</body>
+</html>
